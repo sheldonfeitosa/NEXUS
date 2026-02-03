@@ -53,11 +53,19 @@
             <!-- View: Dashboard -->
             <div id="view-dashboard" class="view-section active">
                 <header class="top-header">
-                    <div class="header-title">
-                        <h1>Visão Geral</h1>
-                        <p>INMCEB INSTITUTO DE MEDICINA DE COMPORTAMENTO EURÍPEDES BARSASULFO - PRONTO ATENDIMENTO</p>
-                        <p id="header-date"
-                            style="font-size: 0.9rem; color: var(--primary); margin-top: 4px; font-weight: 500;"></p>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <h1>Visão Geral</h1>
+                            <p>INMCEB INSTITUTO DE MEDICINA DE COMPORTAMENTO EURÍPEDES BARSASULFO - PRONTO ATENDIMENTO
+                            </p>
+                            <p id="header-date"
+                                style="font-size: 0.9rem; color: var(--primary); margin-top: 4px; font-weight: 500;">
+                            </p>
+                        </div>
+                        <div id="sync-status" class="sync-status offline">
+                            <i class="fa-solid fa-circle"></i>
+                            <span>Desconectado</span>
+                        </div>
                     </div>
                 </header>
 
@@ -116,7 +124,7 @@
                         <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-muted);">
                             <i class="fa-solid fa-circle-notch fa-spin"
                                 style="font-size: 2rem; margin-bottom: 1rem;"></i>
-                            <p>Carregando leitos do sistema...</p>
+                            <p id="loading-msg">Carregando leitos do sistema...</p>
                         </div>
                     </div>
                 </section>
