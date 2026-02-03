@@ -316,6 +316,7 @@ window.openAdmissionModal = function (bedId) {
     const unitSelect = document.getElementById('patient-unit');
     unitSelect.innerHTML = '<option value="">Selecione...</option>' + createOptions(null);
     document.getElementById('admission-form').reset();
+    document.getElementById('patient-reg').value = ''; // Ensure field is empty
     modal.classList.add('active');
 }
 
@@ -341,10 +342,11 @@ window.handleAdmission = async function () {
     const targetBedId = modal.dataset.targetBedId ? parseInt(modal.dataset.targetBedId) : null;
 
     const name = document.getElementById('patient-name').value;
+    const patientReg = document.getElementById('patient-reg').value;
     const birthDate = document.getElementById('patient-birth').value;
     const unit = document.getElementById('patient-unit').value;
 
-    if (!name || !birthDate || !unit) {
+    if (!name || !patientReg || !birthDate || !unit) {
         alert("Por favor, preencha todos os campos.");
         return;
     }
@@ -370,6 +372,7 @@ window.handleAdmission = async function () {
         await updateDoc(bedDocRef, {
             status: 'occupied',
             patient: name,
+            registryNumber: patientReg,
             origin: unit,
             destination: "---",
             birthDate: birthDate,
@@ -409,9 +412,8 @@ window.handleTransfer = async function () {
 
             // Clear Bed
             await updateDoc(doc(db, "beds", bedIdDoc), {
-                status: 'available',
-                // Remove patient data
                 patient: null,
+                registryNumber: null,
                 origin: null,
                 destination: null,
                 birthDate: null,
@@ -444,8 +446,8 @@ window.handleDischarge = async function (bedId) {
             // Clear Bed
             await updateDoc(doc(db, "beds", bedIdDoc), {
                 status: 'available',
-                // Remove patient data
                 patient: null,
+                registryNumber: null,
                 origin: null,
                 destination: null,
                 birthDate: null,
@@ -536,6 +538,7 @@ function renderBedGrid(container) {
                     </div>
                     <div class="patient-info">
                         <div class="patient-name">${bed.patient || 'Sem Nome'}</div>
+                        <div style="font-size: 0.8rem; color: var(--primary); font-weight: 600; margin-bottom: 0.5rem; text-align: center;">N. do Reg: ${bed.registryNumber || '---'}</div>
                         
                         <div style="display: flex; gap: 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: var(--text-muted); background: #f1f5f9; padding: 0.5rem; border-radius: 0.375rem;">
                             <div>
@@ -662,18 +665,21 @@ function renderPatientList() {
         if (bed.status === 'occupied') {
             statusBadge = '<span class="history-badge" style="background-color: #fecaca; color: #991b1b;">Ocupado</span>';
             patientName = `<div style="font-weight: 600; color: var(--text-main);">${bed.patient}</div><div style="font-size: 0.75rem; color: var(--text-muted);">${bed.birthDate ? calculateAge(bed.birthDate) + ' anos' : ''}</div>`;
+            patientReg = `<div style="font-weight: 600; color: var(--primary);">${bed.registryNumber || '---'}</div>`;
             origin = bed.origin;
             destination = bed.destination;
             timeIn = bed.admissionTime;
         } else {
             statusBadge = '<span class="history-badge" style="background-color: #f1f5f9; color: var(--text-muted);">Disponível</span>';
             patientName = '<span style="color: var(--text-muted); font-style: italic;">---</span>';
+            patientReg = '<span style="color: var(--text-muted); font-style: italic;">---</span>';
         }
 
         row.innerHTML = `
             <td style="font-weight: 600;">Leito ${String(bed.id).padStart(2, '0')}</td>
             <td>${statusBadge}</td>
             <td>${patientName}</td>
+            <td>${patientReg}</td>
             <td>${origin}</td>
             <td>${destination}</td>
             <td>${timeIn}</td>
