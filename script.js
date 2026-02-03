@@ -59,6 +59,16 @@ function setupBedsListener() {
         }
     }, (error) => {
         console.error("Beds Listener Error:", error);
+        const container = document.getElementById('bed-grid-container');
+        if (container) {
+            container.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--danger);">
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                    <p><strong>Erro de Conexão:</strong> Não foi possível ler os dados do Firebase.</p>
+                    <p style="font-size: 0.9rem; margin-top: 0.5rem; opacity: 0.8;">Verifique se as Regras do Firestore permitem leitura ou se as credenciais estão corretas.</p>
+                    <code style="display: block; margin-top: 1rem; padding: 0.5rem; background: #fee2e2; border-radius: 4px;">${error.message}</code>
+                </div>`;
+        }
     });
 }
 
