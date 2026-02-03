@@ -355,10 +355,11 @@ window.handleAdmission = async function () {
         return;
     }
 
-    const bedIdDoc = `bed_${String(bedsData[bedIndex].id).padStart(2, '0')}`;
+    const bedDocRef = doc(db, "beds", bedIdDoc);
+    console.log(`Attempting admission for ${name} in ${bedIdDoc}...`);
 
     try {
-        await updateDoc(doc(db, "beds", bedIdDoc), {
+        await updateDoc(bedDocRef, {
             status: 'occupied',
             patient: name,
             origin: unit,
@@ -368,6 +369,7 @@ window.handleAdmission = async function () {
             transferTime: "---",
             dischargeTime: "---"
         });
+        console.log("Admission saved successfully!");
 
         // Log History
         await addToHistory('Admissão', name, `Admitido em ${unit} (Leito ${bedsData[bedIndex].id})`);
