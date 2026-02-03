@@ -40,8 +40,8 @@ function setupBedsListener() {
             tempBeds.push(doc.data());
         });
 
-        // Initialize if empty (First Run)
-        if (tempBeds.length === 0) {
+        // Initialize if incomplete (Ensures always 15 beds)
+        if (tempBeds.length < 15) {
             seedDatabase();
         } else {
             // Sort by ID to ensure order 1-15
