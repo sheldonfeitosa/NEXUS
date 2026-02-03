@@ -15,28 +15,32 @@ import {
 let bedsData = [];
 let patientHistory = [];
 let isSeeding = false;
+let hasInitialized = false;
 
-document.addEventListener('DOMContentLoaded', async () => {
+// Initialize on Load
+initialize();
+
+async function initialize() {
     console.log('NexusCare PA Farmácia initialized with Firebase');
-
     initializeNavigation();
+    updateHeaderDate();
 
     // Setup Real-time Listeners
     setupBedsListener();
     setupHistoryListener();
-
-    updateHeaderDate();
-});
+}
 
 // --- Firebase Listeners ---
 
 function setupBedsListener() {
     const bedsCollection = collection(db, "beds");
+    const container = document.getElementById('bed-grid-container');
 
     onSnapshot(bedsCollection, (snapshot) => {
         const tempBeds = [];
         snapshot.forEach(doc => {
-            tempBeds.push(doc.data());
+            const data = doc.data();
+            if (data && data.id) tempBeds.push(data);
         });
 
         console.log(`Beds Snapshot: ${tempBeds.length} items`);
@@ -44,12 +48,18 @@ function setupBedsListener() {
         // Always update bedsData with what we have
         bedsData = tempBeds.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
 
+        // Show status in the loading screen if it's still there
+        const loadingMsg = document.getElementById('loading-msg');
+        if (loadingMsg && tempBeds.length < 15) {
+            loadingMsg.textContent = `Carregando leitos (${tempBeds.length}/15 encontrados)...`;
+        }
+
         if (tempBeds.length < 15 && !isSeeding) {
-            console.log("Forcing seed as we have less than 15 beds...");
+            console.log("Forcing seed for missing beds...");
             seedDatabase();
         }
 
-        // Render even if partial, to avoid "stuck loading"
+        // Render as soon as we have at least one bed
         if (tempBeds.length > 0) {
             initializeBedGrid();
             renderPatientListIfActive();
@@ -57,14 +67,13 @@ function setupBedsListener() {
         }
     }, (error) => {
         console.error("Beds Listener Error:", error);
-        const container = document.getElementById('bed-grid-container');
         if (container) {
             container.innerHTML = `
                 <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--danger);">
                     <i class="fa-solid fa-triangle-exclamation" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                    <p><strong>Erro de Conexão:</strong> Não foi possível ler os dados do Firebase.</p>
-                    <p style="font-size: 0.9rem; margin-top: 0.5rem; opacity: 0.8;">Verifique se as Regras do Firestore permitem leitura ou se as credenciais estão corretas.</p>
-                    <code style="display: block; margin-top: 1rem; padding: 0.5rem; background: #fee2e2; border-radius: 4px;">${error.message}</code>
+                    <p><strong>Erro de Conexão:</strong> Não foi possível ler o banco de dados.</p>
+                    <p style="font-size: 0.8rem; margin: 1rem 0;">${error.message}</p>
+                    <button class="btn btn-primary" onclick="location.reload()">Tentar Novamente</button>
                 </div>`;
         }
     });
