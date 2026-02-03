@@ -658,6 +658,7 @@ function renderPatientList() {
 
         let statusBadge = '';
         let patientName = '';
+        let patientReg = '---';
         let origin = '---';
         let destination = '---';
         let timeIn = '---';
