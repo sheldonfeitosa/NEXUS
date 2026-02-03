@@ -43,7 +43,19 @@ function setupBedsListener() {
             if (data && data.id) tempBeds.push(data);
         });
 
-        console.log(`Beds Snapshot: ${tempBeds.length} items`);
+        console.log(`Beds Snapshot: ${tempBeds.length} items (Live: ${!snapshot.metadata.fromCache})`);
+
+        // Connectivity Indicator
+        const statusEl = document.getElementById('sync-status');
+        if (statusEl) {
+            if (snapshot.metadata.fromCache) {
+                statusEl.className = 'sync-status offline';
+                statusEl.querySelector('span').textContent = 'Sincronizando...';
+            } else {
+                statusEl.className = 'sync-status online';
+                statusEl.querySelector('span').textContent = 'Sincronizado';
+            }
+        }
 
         // Always update bedsData with what we have
         bedsData = tempBeds.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
