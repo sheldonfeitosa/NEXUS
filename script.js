@@ -14,6 +14,7 @@ import {
 // Global Data State
 let bedsData = [];
 let patientHistory = [];
+let isSeeding = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('NexusCare PA Farmácia initialized with Firebase');
