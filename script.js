@@ -123,21 +123,28 @@ function setupHistoryListener() {
 
 // --- Database Seeding ---
 
-async function seedDatabase() {
-    if (isSeeding) return;
+async function seedDatabase(missingIds = []) {
+    if (isSeeding || (missingIds.length === 0 && bedsData.length >= 15)) return;
     isSeeding = true;
-    console.log("Seeding/Verifying beds 1-15...");
+    console.log(`Seeding missing beds: ${missingIds.join(', ')}`);
     try {
         const promises = [];
-        for (let i = 1; i <= 15; i++) {
-            const bedId = `bed_${String(i).padStart(2, '0')}`;
+        // If no specific IDs provided, check all 1-15
+        const idsToSeed = missingIds.length > 0 ? missingIds : Array.from({ length: 15 }, (_, i) => i + 1);
+
+        for (const id of idsToSeed) {
+            // Check if it already exists in our local state to be extra safe
+            if (bedsData.some(b => b.id === id)) continue;
+
+            const bedId = `bed_${String(id).padStart(2, '0')}`;
             const bedRef = doc(db, "beds", bedId);
-            // Use setDoc with i as number and status string
-            // Parallelizing for speed
-            promises.push(setDoc(bedRef, { id: i, status: 'available' }, { merge: true }));
+            promises.push(setDoc(bedRef, { id: id, status: 'available' }, { merge: true }));
         }
-        await Promise.all(promises);
-        console.log("Seeding complete. All 15 beds verified/created.");
+
+        if (promises.length > 0) {
+            await Promise.all(promises);
+            console.log(`Seeding complete. ${promises.length} beds added.`);
+        }
     } catch (err) {
         console.error("Seeding Error:", err);
     } finally {
@@ -250,24 +257,32 @@ function getDateFromTimestamp(ts) {
 }
 
 function updateDailyStats() {
-    const today = new Date().toLocaleDateString('pt-BR'); // e.g. "03/02/2026"
+    const now = new Date();
+    const todayStr = now.toLocaleDateString('pt-BR'); // "dd/mm/yyyy"
 
-    // Filter history for today's Admissions
+    // Helper to extract date part regardless of locale formatting (handles "/" or "-")
+    const normalizeDate = (dateStr) => {
+        if (!dateStr) return "";
+        // Extract first 10 characters or before the first comma/space
+        const part = dateStr.split(/[,\s]/)[0];
+        return part;
+    };
+
+    const todayNormalized = normalizeDate(todayStr);
+
     const admissionsCount = patientHistory.filter(entry => {
-        const entryDate = getDateFromTimestamp(entry.timestamp);
-        return entryDate === today && entry.type === 'Admissão';
+        const entryDate = normalizeDate(entry.timestamp);
+        return entryDate === todayNormalized && entry.type === 'Admissão';
     }).length;
 
-    // Filter history for today's Transfers
     const transfersCount = patientHistory.filter(entry => {
-        const entryDate = getDateFromTimestamp(entry.timestamp);
-        return entryDate === today && entry.type === 'Transferência';
+        const entryDate = normalizeDate(entry.timestamp);
+        return entryDate === todayNormalized && entry.type === 'Transferência';
     }).length;
 
-    // Filter history for today's Discharges
     const dischargesCount = patientHistory.filter(entry => {
-        const entryDate = getDateFromTimestamp(entry.timestamp);
-        return entryDate === today && entry.type === 'Alta';
+        const entryDate = normalizeDate(entry.timestamp);
+        return entryDate === todayNormalized && entry.type === 'Alta';
     }).length;
 
     const elAdmissions = document.getElementById('daily-admissions-count');
