@@ -31,8 +31,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function setupBedsListener() {
     const bedsCollection = collection(db, "beds");
-    // Sort logic might need to be client-side if we use "bed_id" as doc ID string 
-    // or we can use a field. For now, we'll fetch all and sort client-side.
 
     onSnapshot(bedsCollection, (snapshot) => {
         const tempBeds = [];
@@ -42,19 +40,18 @@ function setupBedsListener() {
 
         console.log(`Beds Snapshot: ${tempBeds.length} items`);
 
-        // Initialize if incomplete (Ensures always 15 beds)
-        if (tempBeds.length < 15) {
+        // Always update bedsData with what we have
+        bedsData = tempBeds.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+
+        if (tempBeds.length < 15 && !isSeeding) {
             console.log("Forcing seed as we have less than 15 beds...");
             seedDatabase();
-        } else {
-            // Sort by ID to ensure order 1-15
-            bedsData = tempBeds.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
-            // Limit to 15 if there are more for some reason
-            bedsData = bedsData.slice(0, 15);
+        }
 
-            console.log("Rendering Grid with ", bedsData.length, " beds");
-            initializeBedGrid(); // Re-render grid
-            renderPatientListIfActive(); // Re-render list if active
+        // Render even if partial, to avoid "stuck loading"
+        if (tempBeds.length > 0) {
+            initializeBedGrid();
+            renderPatientListIfActive();
             updateOccupancyStats();
         }
     }, (error) => {
@@ -105,16 +102,20 @@ function setupHistoryListener() {
 // --- Database Seeding ---
 
 async function seedDatabase() {
+    if (isSeeding) return;
+    isSeeding = true;
     console.log("Seeding/Verifying beds 1-15...");
-    const bedsRef = collection(db, "beds");
-
-    for (let i = 1; i <= 15; i++) {
-        const bedId = `bed_${String(i).padStart(2, '0')}`;
-        const bedRef = doc(db, "beds", bedId);
-        // Only create if it doesn't have data yet to avoid overwriting production data
-        // For simplicity in fixing this bug, we'll just check if it exists in current bedsData later
-        // or just set it. Let's use setDoc which adds it if missing.
-        await setDoc(bedRef, { id: i, status: 'available' }, { merge: true });
+    try {
+        for (let i = 1; i <= 15; i++) {
+            const bedId = `bed_${String(i).padStart(2, '0')}`;
+            const bedRef = doc(db, "beds", bedId);
+            await setDoc(bedRef, { id: i, status: 'available' }, { merge: true });
+        }
+        console.log("Seeding complete.");
+    } catch (err) {
+        console.error("Seeding Error:", err);
+    } finally {
+        isSeeding = false;
     }
 }
 
