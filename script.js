@@ -116,18 +116,25 @@ async function seedDatabase() {
     isSeeding = true;
     console.log("Seeding/Verifying beds 1-15...");
     try {
+        const promises = [];
         for (let i = 1; i <= 15; i++) {
             const bedId = `bed_${String(i).padStart(2, '0')}`;
             const bedRef = doc(db, "beds", bedId);
-            await setDoc(bedRef, { id: i, status: 'available' }, { merge: true });
+            // Use setDoc with i as number and status string
+            // Parallelizing for speed
+            promises.push(setDoc(bedRef, { id: i, status: 'available' }, { merge: true }));
         }
-        console.log("Seeding complete.");
+        await Promise.all(promises);
+        console.log("Seeding complete. All 15 beds verified/created.");
     } catch (err) {
         console.error("Seeding Error:", err);
     } finally {
         isSeeding = false;
     }
 }
+
+// Global expose for troubleshooting
+window.forceResetBeds = seedDatabase;
 
 // --- Navigation & Views ---
 
