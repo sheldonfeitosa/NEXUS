@@ -66,9 +66,16 @@ function setupBedsListener() {
             loadingMsg.textContent = `Carregando leitos (${tempBeds.length}/15 encontrados)...`;
         }
 
+        // Selective Seeding: Only create missing beds
         if (tempBeds.length < 15 && !isSeeding) {
-            console.log("Forcing seed for missing beds...");
-            seedDatabase();
+            const missingIds = [];
+            for (let i = 1; i <= 15; i++) {
+                if (!tempBeds.some(b => Number(b.id) === i)) missingIds.push(i);
+            }
+            if (missingIds.length > 0) {
+                console.log("Seeding missing beds:", missingIds);
+                seedDatabase(missingIds);
+            }
         }
 
         // Render as soon as we have at least one bed
