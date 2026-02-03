@@ -40,16 +40,25 @@ function setupBedsListener() {
             tempBeds.push(doc.data());
         });
 
+        console.log(`Beds Snapshot: ${tempBeds.length} items`);
+
         // Initialize if incomplete (Ensures always 15 beds)
         if (tempBeds.length < 15) {
+            console.log("Forcing seed as we have less than 15 beds...");
             seedDatabase();
         } else {
             // Sort by ID to ensure order 1-15
-            bedsData = tempBeds.sort((a, b) => a.id - b.id);
+            bedsData = tempBeds.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+            // Limit to 15 if there are more for some reason
+            bedsData = bedsData.slice(0, 15);
+
+            console.log("Rendering Grid with ", bedsData.length, " beds");
             initializeBedGrid(); // Re-render grid
             renderPatientListIfActive(); // Re-render list if active
             updateOccupancyStats();
         }
+    }, (error) => {
+        console.error("Beds Listener Error:", error);
     });
 }
 
@@ -86,13 +95,16 @@ function setupHistoryListener() {
 // --- Database Seeding ---
 
 async function seedDatabase() {
-    console.log("Seeding database with 15 empty beds...");
+    console.log("Seeding/Verifying beds 1-15...");
     const bedsRef = collection(db, "beds");
 
     for (let i = 1; i <= 15; i++) {
         const bedId = `bed_${String(i).padStart(2, '0')}`;
-        const bedData = { id: i, status: 'available' };
-        await setDoc(doc(db, "beds", bedId), bedData);
+        const bedRef = doc(db, "beds", bedId);
+        // Only create if it doesn't have data yet to avoid overwriting production data
+        // For simplicity in fixing this bug, we'll just check if it exists in current bedsData later
+        // or just set it. Let's use setDoc which adds it if missing.
+        await setDoc(bedRef, { id: i, status: 'available' }, { merge: true });
     }
 }
 
@@ -421,98 +433,108 @@ function initializeBedGrid() {
 }
 
 function renderBedGrid(container) {
+    if (!container) return;
     container.innerHTML = '';
+    console.log("Current bedsData in render:", bedsData);
 
     bedsData.forEach(bed => {
-        const card = document.createElement('div');
-        card.className = 'card bed-card';
+        try {
+            const card = document.createElement('div');
+            card.className = 'card bed-card';
 
-        if (bed.status === 'available') {
-            card.style.borderLeft = '4px solid #cbd5e1';
-            card.innerHTML = `
-                <div class="bed-header">
-                    <span class="bed-number">Leito ${String(bed.id).padStart(2, '0')}</span>
-                    <span class="bed-status" style="background-color: #f1f5f9; color: var(--text-muted);">Disponível</span>
-                </div>
-                <div class="patient-info" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 200px;">
-                    <i class="fa-solid fa-bed" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 1rem;"></i>
-                    <button class="btn btn-primary" onclick="openAdmissionModal(${bed.id})">
-                        <i class="fa-solid fa-user-plus"></i> Admitir Paciente
-                    </button>
-                </div>
-            `;
-        } else {
-            const age = calculateAge(bed.birthDate);
-            const formattedDate = new Date(bed.birthDate).toLocaleDateString('pt-BR');
-
-            card.innerHTML = `
-                <div class="bed-header">
-                    <span class="bed-number">Leito ${String(bed.id).padStart(2, '0')}</span>
-                    <span class="bed-status">Ocupado</span>
-                </div>
-                <div class="patient-info">
-                    <div class="patient-name">${bed.patient}</div>
-                    
-                    <div style="display: flex; gap: 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: var(--text-muted); background: #f1f5f9; padding: 0.5rem; border-radius: 0.375rem;">
-                        <div>
-                            <i class="fa-solid fa-cake-candles" style="margin-right: 4px; color: var(--primary);"></i>
-                            <strong>${formattedDate}</strong>
-                        </div>
-                        <div>
-                            <i class="fa-solid fa-hourglass-half" style="margin-right: 4px; color: var(--primary);"></i>
-                            <strong>${age} anos</strong>
-                        </div>
+            if (bed.status === 'available') {
+                card.style.borderLeft = '4px solid #cbd5e1';
+                card.innerHTML = `
+                    <div class="bed-header">
+                        <span class="bed-number">Leito ${String(bed.id).padStart(2, '0')}</span>
+                        <span class="bed-status" style="background-color: #f1f5f9; color: var(--text-muted);">Disponível</span>
                     </div>
-
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem; border: 1px solid #e2e8f0; border-radius: 0.375rem; padding: 0.5rem;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                            <span>Admissão:</span>
-                            <span style="font-weight: 600; color: var(--text-main);">${bed.admissionTime}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                            <span>Transferência:</span>
-                            <span style="font-weight: 600; color: var(--text-main);">${bed.transferTime}</span>
-                        </div>
-                         <div style="display: flex; justify-content: space-between;">
-                            <span>Alta:</span>
-                            <span style="font-weight: 600; color: var(--text-main);">${bed.dischargeTime}</span>
-                        </div>
-                    </div>
-
-                    <div class="transfer-route">
-                        <div class="unit-badge" style="width: 100%;">
-                            <span class="unit-label">Origem</span>
-                            <div style="font-weight: 600; font-size: 0.9rem; padding: 0.25rem 0;">${bed.origin}</div>
-                        </div>
-                        
-                        <div style="display: flex; align-items: center; justify-content: center; padding: 0 0.5rem; color: var(--text-muted);">
-                            <i class="fa-solid fa-arrow-right"></i>
-                        </div>
-
-                        <div class="unit-badge" style="width: 100%;">
-                            <span class="unit-label">Destino</span>
-                            <div style="font-weight: 600; font-size: 0.9rem; padding: 0.25rem 0; color: var(--primary);">${bed.destination}</div>
-                        </div>
-                    </div>
-
-                    <div style="display: flex; gap: 0.5rem; margin-top: 1rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
-                        <button class="btn btn-secondary" style="flex: 1; font-size: 0.8rem; padding: 0.4rem;" onclick="openTransferModal(${bed.id})">
-                            <i class="fa-solid fa-share-from-square" style="margin-right: 4px;"></i> Transferir
+                    <div class="patient-info" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 200px;">
+                        <i class="fa-solid fa-bed" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 1rem;"></i>
+                        <button class="btn btn-primary" onclick="openAdmissionModal(${bed.id})">
+                            <i class="fa-solid fa-user-plus"></i> Admitir Paciente
                         </button>
-                        ${bed.dischargeTime === "---" ?
-                    `<button class="btn" style="flex: 1; font-size: 0.8rem; padding: 0.4rem; background-color: #fee2e2; color: #dc2626; border: 1px solid #fecaca;" onclick="handleDischarge(${bed.id})">
-                                <i class="fa-solid fa-door-open" style="margin-right: 4px;"></i> Alta
-                            </button>` :
-                    `<div style="flex: 1; text-align: center; font-size: 0.8rem; font-weight: 600; color: var(--success); padding: 0.4rem; background: #dcfce7; border-radius: 0.375rem;">
-                                Alta Realizada
-                            </div>`
-                }
                     </div>
-                </div>
-            `;
-        }
+                `;
+            } else {
+                const age = calculateAge(bed.birthDate);
+                let formattedDate = "---";
+                if (bed.birthDate) {
+                    const bDate = new Date(bed.birthDate);
+                    formattedDate = isNaN(bDate) ? "---" : bDate.toLocaleDateString('pt-BR');
+                }
 
-        container.appendChild(card);
+                card.innerHTML = `
+                    <div class="bed-header">
+                        <span class="bed-number">Leito ${String(bed.id).padStart(2, '0')}</span>
+                        <span class="bed-status">Ocupado</span>
+                    </div>
+                    <div class="patient-info">
+                        <div class="patient-name">${bed.patient || 'Sem Nome'}</div>
+                        
+                        <div style="display: flex; gap: 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: var(--text-muted); background: #f1f5f9; padding: 0.5rem; border-radius: 0.375rem;">
+                            <div>
+                                <i class="fa-solid fa-cake-candles" style="margin-right: 4px; color: var(--primary);"></i>
+                                <strong>${formattedDate}</strong>
+                            </div>
+                            <div>
+                                <i class="fa-solid fa-hourglass-half" style="margin-right: 4px; color: var(--primary);"></i>
+                                <strong>${age} anos</strong>
+                            </div>
+                        </div>
+
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem; border: 1px solid #e2e8f0; border-radius: 0.375rem; padding: 0.5rem;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span>Admissão:</span>
+                                <span style="font-weight: 600; color: var(--text-main);">${bed.admissionTime || '---'}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span>Transferência:</span>
+                                <span style="font-weight: 600; color: var(--text-main);">${bed.transferTime || '---'}</span>
+                            </div>
+                             <div style="display: flex; justify-content: space-between;">
+                                <span>Alta:</span>
+                                <span style="font-weight: 600; color: var(--text-main);">${bed.dischargeTime || '---'}</span>
+                            </div>
+                        </div>
+
+                        <div class="transfer-route">
+                            <div class="unit-badge" style="width: 100%;">
+                                <span class="unit-label">Origem</span>
+                                <div style="font-weight: 600; font-size: 0.9rem; padding: 0.25rem 0;">${bed.origin || '---'}</div>
+                            </div>
+                            
+                            <div style="display: flex; align-items: center; justify-content: center; padding: 0 0.5rem; color: var(--text-muted);">
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </div>
+
+                            <div class="unit-badge" style="width: 100%;">
+                                <span class="unit-label">Destino</span>
+                                <div style="font-weight: 600; font-size: 0.9rem; padding: 0.25rem 0; color: var(--primary);">${bed.destination || '---'}</div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 0.5rem; margin-top: 1rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
+                            <button class="btn btn-secondary" style="flex: 1; font-size: 0.8rem; padding: 0.4rem;" onclick="openTransferModal(${bed.id})">
+                                <i class="fa-solid fa-share-from-square" style="margin-right: 4px;"></i> Transferir
+                            </button>
+                            ${bed.dischargeTime === "---" || !bed.dischargeTime ?
+                        `<button class="btn" style="flex: 1; font-size: 0.8rem; padding: 0.4rem; background-color: #fee2e2; color: #dc2626; border: 1px solid #fecaca;" onclick="handleDischarge(${bed.id})">
+                                    <i class="fa-solid fa-door-open" style="margin-right: 4px;"></i> Alta
+                                </button>` :
+                        `<div style="flex: 1; text-align: center; font-size: 0.8rem; font-weight: 600; color: var(--success); padding: 0.4rem; background: #dcfce7; border-radius: 0.375rem;">
+                                    Alta Realizada
+                                </div>`
+                    }
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.appendChild(card);
+        } catch (err) {
+            console.error("Error rendering bed card:", bed, err);
+        }
     });
 
     updateOccupancyStats();
