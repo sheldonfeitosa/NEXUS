@@ -362,6 +362,7 @@ window.handleAdmission = async function () {
         return;
     }
 
+    const bedIdDoc = `bed_${String(bedsData[bedIndex].id).padStart(2, '0')}`;
     const bedDocRef = doc(db, "beds", bedIdDoc);
     console.log(`Attempting admission for ${name} in ${bedIdDoc}...`);
 
