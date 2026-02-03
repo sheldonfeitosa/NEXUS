@@ -244,8 +244,8 @@ ul {
 /* Bed Grid */
 .bed-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: var(--space-lg);
+    grid-template-columns: repeat(15, 1fr);
+    gap: var(--space-md);
     margin-bottom: var(--space-xl);
 }
 
